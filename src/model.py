@@ -223,7 +223,7 @@ def run_nested_cv(
         feature_stability = (
             coef_df.groupby("feature")
             .agg(
-                selection_frequency=("selected", "mean"),
+                selected_folds=("selected", "sum"),
                 median_coefficient=("coefficient", "median"),
                 mean_abs_coefficient=(
                     "coefficient",
@@ -232,10 +232,16 @@ def run_nested_cv(
                 folds_eligible=("fold", "nunique"),
             )
             .reset_index()
-            .sort_values(
-                ["selection_frequency", "mean_abs_coefficient"],
-                ascending=False,
-            )
+        )
+        feature_stability["selection_frequency"] = (
+            feature_stability["selected_folds"] / outer_splits
+        )
+        feature_stability["eligibility_frequency"] = (
+            feature_stability["folds_eligible"] / outer_splits
+        )
+        feature_stability = feature_stability.sort_values(
+            ["selection_frequency", "mean_abs_coefficient"],
+            ascending=False,
         )
 
     auc = roc_auc_score(y, oof_prob)
