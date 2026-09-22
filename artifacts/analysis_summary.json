@@ -1,0 +1,34 @@
+{
+  "n_subjects": 127,
+  "n_endometriosis": 67,
+  "n_control": 60,
+  "n_input_features": 752,
+  "oof_roc_auc": 0.6380597014925373,
+  "oof_roc_auc_ci_95": [
+    0.5396378900949796,
+    0.7332377712061552
+  ],
+  "oof_average_precision": 0.6735892480016573,
+  "oof_average_precision_ci_95": [
+    0.5598354198042601,
+    0.7885650658778628
+  ],
+  "brier_score": 0.29064072906033095,
+  "threshold_0_5": {
+    "threshold": 0.5,
+    "sensitivity": 0.582089552238806,
+    "specificity": 0.6166666666666667,
+    "ppv": 0.6290322580645161,
+    "npv": 0.5692307692307692,
+    "accuracy": 0.5984251968503937,
+    "tn": 37,
+    "fp": 23,
+    "fn": 28,
+    "tp": 39
+  },
+  "outer_splits": 5,
+  "inner_splits": 4,
+  "random_state": 42,
+  "feature_qc": "Detection >=75% within each training fold only",
+  "model": "Elastic-net logistic regression"
+}
