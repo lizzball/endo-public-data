@@ -77,8 +77,8 @@ calibration = pd.read_csv(ART / "calibration_points.csv")
 st.markdown(
     f"""
 <div class="summary-box"><b>Analysis summary.</b> This reproducible reanalysis uses {summary['n_subjects']} serum samples
-({summary['n_endometriosis']} endometriosis, {summary['n_control']} controls) from GEO GSE279435. The public values are normalized −ΔCt.
-Feature detection filtering, median imputation, scaling and model tuning occur inside the training data of each cross-validation split.
+({summary['n_endometriosis']} endometriosis, {summary['n_control']} controls) from GEO GSE279435. The public matrix contains normalized −ΔCt values prepared by the source study.
+Our independent modelling begins from that deposited matrix: feature detection filtering, median imputation, scaling and model tuning occur inside the training data of each cross-validation split.
 This is a methods case study, not a validated clinical diagnostic.</div>
 """,
     unsafe_allow_html=True,
@@ -91,11 +91,12 @@ auc_ci = summary["oof_roc_auc_ci_95"]
 c3.metric("Bootstrap 95% CI", f"{auc_ci[0]:.2f}–{auc_ci[1]:.2f}")
 c4.metric("Avg precision", f"{summary['oof_average_precision']:.3f}")
 
-validation_tab, decision_tab, stability_tab, subtype_tab, data_tab = st.tabs(
+validation_tab, decision_tab, stability_tab, provenance_tab, subtype_tab, data_tab = st.tabs(
     [
         "Model validation",
         "Decision layer",
         "Biomarker stability",
+        "Pipeline provenance",
         "Subtype review",
         "Data & limitations",
     ]
@@ -297,6 +298,63 @@ with stability_tab:
             "training folds; it is not evidence that a marker is clinically validated."
         )
 
+
+with provenance_tab:
+    st.subheader("From assay to independent reanalysis")
+    st.markdown(
+        """
+This project separates **upstream experimental processing performed by the source study** from the modelling steps performed in this repository. That distinction matters because the public GEO matrix begins after several thoughtful assay-QC and normalization decisions had already been made.
+"""
+    )
+
+    left, right = st.columns(2)
+
+    with left:
+        st.markdown("#### Source-study processing")
+        st.markdown(
+            """
+**1. OpenArray assay QC**  
+The investigators profiled 754 human miRNA targets on the TaqMan OpenArray platform and applied assay-level quality criteria before downstream analysis.
+
+**2. Hemolysis assessment**  
+Serum samples were evaluated using the relationship between **miR-451a** and **miR-23a-3p**; samples meeting the study's hemolysis exclusion criterion were removed before the deposited analysis cohort was defined.
+
+**3. Reference-miRNA evaluation**  
+Candidate reference miRNAs were assessed with **BestKeeper, NormFinder, geNorm and comparative ΔCt** through RefFinder. The investigators also used a **Two-One-Sided Test (TOST)** to examine equivalence between endometriosis and control groups.
+
+**4. Reference panel selected**  
+Among stable candidates amplified in at least 95% of samples, the study selected **miR-15a-5p, miR-26b-5p and miR-92a-3p**. Their arithmetic mean was used as the normalization reference.
+
+**5. GEO matrix**  
+GSE279435 provides the resulting normalized **−ΔCt** expression matrix used here.
+"""
+        )
+
+    with right:
+        st.markdown("#### This repository")
+        st.markdown(
+            """
+**Our reanalysis begins at the deposited −ΔCt matrix.**
+
+Within each outer cross-validation split, the training data alone are used to:
+
+- retain miRNAs meeting the ≥75% detection rule;
+- median-impute missing values;
+- standardize predictors;
+- tune elastic-net regularization in an inner CV loop;
+- fit the final fold-specific model.
+
+Only then are probabilities generated for the held-out outer fold.
+
+We **do not rerun geNorm or renormalize the deposited −ΔCt matrix**, because the public series matrix does not provide the original unnormalized Cq matrix needed to reproduce that upstream reference-selection exercise directly. Instead, the app documents the source-study normalization and treats it as part of the dataset provenance.
+"""
+        )
+
+    st.info(
+        "Interpretation: the nested CV contains the model-development steps available from the public normalized matrix onward. "
+        "The source study's pre-analytic QC and reference normalization remain upstream components of the public dataset."
+    )
+
 with subtype_tab:
     st.subheader("Where does the model struggle?")
     review = oof.copy()
@@ -343,17 +401,19 @@ with data_tab:
 """
     )
 
-    st.subheader("What this model does differently")
+    st.subheader("Independent reanalysis layer")
     st.markdown(
         """
-The portfolio model uses an **elastic-net logistic regression** rather than trying to reproduce the authors' random-forest/RFE pipeline. Detection filtering (≥75%), median imputation, scaling and hyperparameter selection are all fitted **inside training folds**. The displayed ROC/AUPRC use held-out out-of-fold predictions from a 5-fold outer CV with a 4-fold inner tuning loop.
+The portfolio model uses an **elastic-net logistic regression** as a complementary modelling strategy rather than attempting a direct reconstruction of the source study's random-forest/RFE analysis. Detection filtering (≥75%), median imputation, scaling and hyperparameter selection are all fitted **inside training folds**. The displayed ROC/AUPRC use held-out out-of-fold predictions from a 5-fold outer CV with a 4-fold inner tuning loop.
+
+The study's reference-miRNA selection and −ΔCt normalization are preserved as part of the public dataset provenance and are described in the **Pipeline provenance** tab.
 """
     )
 
     st.subheader("Limitations")
     st.markdown(
         """
-This is a small retrospective cohort, and the controls are women with benign gynecologic conditions rather than a population-screening sample. Internal cross-validation does not substitute for independent external validation. Threshold-dependent PPV/NPV are prevalence-sensitive. The source study performed hemolysis QC before inclusion, but this reanalysis does not have an independent pre-analytic cohort in which to test robustness to collection, site or assay shifts. The model is for reproducible methods demonstration only and should not be used for patient-level diagnosis.
+This is a small retrospective cohort, and the controls include women with benign gynecologic conditions rather than a population-screening sample. Internal cross-validation does not substitute for independent external validation, and threshold-dependent PPV/NPV are prevalence-sensitive. The source study performed pre-analytic QC and reference-based normalization before data deposition; this reanalysis begins from that normalized public matrix and therefore does not independently reassess those upstream steps. The model is for reproducible methods demonstration only and should not be used for patient-level diagnosis.
 """
     )
 
